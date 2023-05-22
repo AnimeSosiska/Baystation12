@@ -14,7 +14,7 @@
 	construct_state = /decl/machine_construction/default/panel_closed
 	uncreated_component_parts = null
 	stat_immune = 0
-	
+
 	machine_name = "gas heating system"
 	machine_desc = "While active, this machine increases the temperature of a connected gas line to the configured amount. Gas pressure increases with heat."
 
@@ -81,55 +81,58 @@
 	update_icon()
 
 /obj/machinery/atmospherics/unary/heater/interface_interact(mob/user)
-	ui_interact(user)
-	return TRUE
+    ui_interact(user)
+    return TRUE
 
-/obj/machinery/atmospherics/unary/heater/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1)
-	// this is the data which will be sent to the ui
-	var/data[0]
-	data["on"] = use_power ? 1 : 0
-	data["gasPressure"] = round(air_contents.return_pressure())
-	data["gasTemperature"] = round(air_contents.temperature)
-	data["minGasTemperature"] = 0
-	data["maxGasTemperature"] = round(max_temperature)
-	data["targetGasTemperature"] = round(set_temperature)
-	data["powerSetting"] = power_setting
+/obj/machinery/atmospherics/unary/heater/tgui_interact(mob/user,  datum/tgui/ui = null)
+    ui = SStgui.try_update_ui(user, src, ui)
+    if(!ui)
+        ui = new(user, src, "GasTemperatureSystem", "Gas Heating System")
+        ui.open()
 
-	var/temp_class = "normal"
-	if(air_contents.temperature > (T20C+40))
-		temp_class = "bad"
-	data["gasTemperatureClass"] = temp_class
+/obj/machinery/atmospherics/unary/heater/tgui_data(mob/user)
+    var/list/data = list()
 
-	// update the ui if it exists, returns null if no ui is passed/found
-	ui = SSnano.try_update_ui(user, src, ui_key, ui, data, force_open)
-	if(!ui)
-		// the ui does not exist, so we'll create a new() one
-		// for a list of parameters and their descriptions see the code docs in \code\modules\nano\nanoui.dm
-		ui = new(user, src, ui_key, "freezer.tmpl", "Gas Heating System", 440, 300)
-		// when the ui is first opened this is the data it will use
-		ui.set_initial_data(data)
-		// open the new ui window
-		ui.open()
-		// auto update every Master Controller tick
-		ui.set_auto_update(1)
+    data["on"] = use_power ? 1 : 0
+    data["gasPressure"] = round(air_contents.return_pressure())
+    data["gasTemperature"] = round(air_contents.temperature)
+    data["minGasTemperature"] = 0
+    data["maxGasTemperature"] = round(max_temperature)
+    data["targetGasTemperature"] = round(set_temperature)
+    data["powerSetting"] = power_setting
 
-/obj/machinery/atmospherics/unary/heater/Topic(href, href_list)
+    var/temp_class = "normal"
+    if(air_contents.temperature > (T20C+40))
+        temp_class = "bad"
+    data["gasTemperatureClass"] = temp_class
+
+    return data
+
+/obj/machinery/atmospherics/unary/heater/tgui_act(action, list/params, datum/tgui/ui, datum/tgui_state/state)
 	if(..())
-		return 1
-	if(href_list["toggleStatus"])
-		update_use_power(!use_power)
-		update_icon()
-	if(href_list["temp"])
-		var/amount = text2num(href_list["temp"])
-		if(amount > 0)
-			set_temperature = min(set_temperature + amount, max_temperature)
-		else
-			set_temperature = max(set_temperature + amount, 0)
-	if(href_list["setPower"]) //setting power to 0 is redundant anyways
-		var/new_setting = between(0, text2num(href_list["setPower"]), 100)
-		set_power_level(new_setting)
+		return
+
+	if(!isturf(loc))
+		return FALSE
+
+	switch(action)
+		if("toggleStatus")
+			update_use_power(!use_power)
+			update_icon()
+		if("setGasTemperatue")
+			var/amount = text2num(params["temp"])
+			if(amount > 0)
+				set_temperature = min(set_temperature + amount, max_temperature)
+			else
+				set_temperature = max(set_temperature + amount, 0)
+
+		if("setPower")
+			var/new_setting = between(0, text2num(params["value"]), 100)
+			set_power_level(new_setting)
 
 	add_fingerprint(usr)
+
+	return TRUE
 
 //upgrading parts
 /obj/machinery/atmospherics/unary/heater/RefreshParts()
